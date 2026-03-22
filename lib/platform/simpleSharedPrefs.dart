@@ -26,6 +26,8 @@ class SettingsKeys {
   static const String tempoTrainerChangeMode = "trainerChangeMode";
   static const String tempoTrainerChangeUnits = "trainerChangeUnits";
   static const String trackGain = "jamTracksGain";
+  static const String lastChannel = "lastChannel";
+  static const String refLevel = "refLevel";
 }
 
 class SharedPrefs {

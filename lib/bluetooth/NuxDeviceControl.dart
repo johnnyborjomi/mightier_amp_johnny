@@ -65,6 +65,9 @@ class NuxDeviceControl extends ChangeNotifier {
   StreamSubscription<List<int>>? rxSubscription;
   Timer? batteryTimer;
 
+  final Map<int, double> _referenceLevels = {};
+  Timer? _autoSaveTimer;
+
   //Preset Name Stuff
   String _presetName = "";
   String presetCategory = "";
@@ -331,6 +334,7 @@ class NuxDeviceControl extends ChangeNotifier {
 
   void _onDisconnect() {
     batteryTimer?.cancel();
+    _autoSaveTimer?.cancel();
     rxSubscription?.cancel();
     clearPresetData();
     device.onDisconnect();
@@ -361,17 +365,35 @@ class NuxDeviceControl extends ChangeNotifier {
     device.communication.performNextConnectionStep();
   }
 
-  void onConnectionStepReady() {
+  void onConnectionStepReady() async {
     if (device.communication.isConnectionReady()) {
       if (device.batterySupport) {
         batteryTimer =
             Timer.periodic(const Duration(seconds: 15), _onBatteryTimer);
         _onBatteryTimer(null);
       }
-      device.sendAmpLevel();
+
+      if (device.fakeMasterVolume) {
+        _initReferenceLevels();
+      }
+
       _connectStatus.add(DeviceConnectionState.connectionComplete);
       debugPrint("Device connection complete");
       notifyListeners();
+
+      int savedChannel = SharedPrefs().getValue(
+          "${SettingsKeys.lastChannel}_${device.productStringId}", -1);
+      if (savedChannel >= 0 &&
+          savedChannel < device.channelsCount &&
+          savedChannel != device.selectedChannel) {
+        device.setSelectedChannel(savedChannel,
+            notifyBT: true, notifyUI: true, sendFullPreset: false);
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (isConnected) {
+        device.sendAmpLevel();
+      }
     } else {
       device.communication.performNextConnectionStep();
     }
@@ -493,7 +515,10 @@ class NuxDeviceControl extends ChangeNotifier {
 
     //implement master volume
     if (device.fakeMasterVolume && param.masterVolume) {
-      outVal = param.masterVolMidiValue;
+      double refLevel =
+          _referenceLevels[device.selectedChannel] ?? param.value;
+      outVal =
+          param.formatter.valueToMidi7Bit(refLevel * (masterVolume * 0.01));
     } else {
       outVal = param.midiValue;
     }
@@ -504,21 +529,7 @@ class NuxDeviceControl extends ChangeNotifier {
 
   void saveNuxPreset() async {
     if (!isConnected) return;
-    double vol = 0;
-    if (device.fakeMasterVolume) {
-      vol = masterVolume;
-      if (vol < 100) {
-        _masterVolume = 100;
-        device.sendAmpLevel();
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-    }
-
     device.communication.saveCurrentPreset(device.selectedChannel);
-
-    if (device.fakeMasterVolume) {
-      _masterVolume = vol;
-    }
     requestPreset(device.selectedChannel);
   }
 
@@ -532,6 +543,46 @@ class NuxDeviceControl extends ChangeNotifier {
       _connectStatus.add(DeviceConnectionState.connectionBegin);
       requestPresetDelayed(3000);
     }
+  }
+
+  String _refLevelKey(int channel) =>
+      "${SettingsKeys.refLevel}_${device.productStringId}_$channel";
+
+  void _initReferenceLevels() {
+    _referenceLevels.clear();
+    for (int ch = 0; ch < device.channelsCount; ch++) {
+      double? saved = SharedPrefs().getValue(_refLevelKey(ch), null);
+      if (saved != null) {
+        _referenceLevels[ch] = saved;
+      } else {
+        double level = _getAmpLevelForChannel(ch);
+        _referenceLevels[ch] = level;
+        SharedPrefs().setValue(_refLevelKey(ch), level);
+      }
+    }
+  }
+
+  double _getAmpLevelForChannel(int ch) {
+    var preset = device.getPreset(ch);
+    var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
+        preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
+    for (var param in amp.parameters) {
+      if (param.masterVolume) return param.value;
+    }
+    return 100;
+  }
+
+  void scheduleAutoSave() {
+    if (!device.fakeMasterVolume || !isConnected) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 2), () {
+      _saveVolumeToAmp();
+    });
+  }
+
+  void _saveVolumeToAmp() {
+    if (!isConnected) return;
+    device.communication.saveCurrentPreset(device.selectedChannel);
   }
 
   void sendBLEData(List<int> data) {

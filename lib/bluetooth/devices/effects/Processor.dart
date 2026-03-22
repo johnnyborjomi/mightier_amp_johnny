@@ -2,7 +2,6 @@
 // This code is licensed under MIT license (see LICENSE.md for details)
 
 import 'package:flutter/material.dart';
-import 'package:mighty_plug_manager/bluetooth/NuxDeviceControl.dart';
 import 'package:mighty_plug_manager/bluetooth/devices/value_formatters/ValueFormatter.dart';
 
 import '../NuxFXID.dart';
@@ -31,8 +30,6 @@ class Parameter {
       this.masterVolume = false});
 
   int get midiValue => formatter.valueToMidi7Bit(value);
-  int get masterVolMidiValue => formatter
-      .valueToMidi7Bit(value * (NuxDeviceControl().masterVolume * 0.01));
   set midiValue(mv) => value = formatter.midi7BitToValue(mv);
   String get label => formatter.toLabel(value);
 

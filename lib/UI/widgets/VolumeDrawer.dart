@@ -103,6 +103,7 @@ class VolumeSlider extends StatelessWidget {
         SettingsKeys.masterVolume,
         NuxDeviceControl.instance().masterVolume,
       );
+      NuxDeviceControl.instance().scheduleAutoSave();
     }
   }
 

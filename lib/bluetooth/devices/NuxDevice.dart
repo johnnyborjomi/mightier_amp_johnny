@@ -165,6 +165,10 @@ abstract class NuxDevice extends ChangeNotifier {
     if (notifyUI) {
       deviceControl.forceNotifyListeners();
     }
+    if (notifyBT) {
+      SharedPrefs().setValue(
+          "${SettingsKeys.lastChannel}_$productStringId", chan);
+    }
   }
 
   bool getChannelActive(int channel) {
@@ -303,7 +307,10 @@ abstract class NuxDevice extends ChangeNotifier {
 
   void onPresetsReady() {
     if (!activeChannelRetrieval) {
-      setSelectedChannel(0,
+      int savedChannel = SharedPrefs().getValue(
+          "${SettingsKeys.lastChannel}_$productStringId", 0);
+      if (savedChannel < 0 || savedChannel >= channelsCount) savedChannel = 0;
+      setSelectedChannel(savedChannel,
           notifyBT: true, notifyUI: true, sendFullPreset: true);
     }
     deviceControl.onPresetsReady();
@@ -335,6 +342,8 @@ abstract class NuxDevice extends ChangeNotifier {
     getPreset(selectedChannel).setupPresetFromNuxData();
     //immediately set the amp level
     sendAmpLevel();
+    SharedPrefs().setValue(
+        "${SettingsKeys.lastChannel}_$productStringId", selectedChannel);
   }
 
   void _handleKnobReceiveData(List<int> data) {
