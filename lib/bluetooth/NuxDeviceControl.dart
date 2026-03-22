@@ -68,6 +68,12 @@ class NuxDeviceControl extends ChangeNotifier {
   final Map<int, double> _referenceLevels = {};
   Timer? _autoSaveTimer;
 
+  Timer? _reconnectTimer;
+  bool _isAutoReconnecting = false;
+  bool _appInForeground = true;
+
+  bool get isAutoReconnecting => _isAutoReconnecting;
+
   //Preset Name Stuff
   String _presetName = "";
   String presetCategory = "";
@@ -298,6 +304,7 @@ class NuxDeviceControl extends ChangeNotifier {
         }
         break;
       case MidiSetupStatus.deviceConnected:
+        _stopAutoReconnect();
         _clearDeviceStack();
 
         //find which device connected
@@ -315,8 +322,19 @@ class NuxDeviceControl extends ChangeNotifier {
       case MidiSetupStatus.deviceDisconnected:
         _clearDeviceStack();
         updateDiagnosticsData(connected: false);
+
+        bool wasUserDisconnect = _midiHandler.userInitiatedDisconnect;
+        _midiHandler.clearUserDisconnectFlag();
+
         notifyListeners();
         _onDisconnect();
+
+        if (!wasUserDisconnect && _appInForeground) {
+          _startAutoReconnect();
+        }
+        break;
+      case MidiSetupStatus.bluetoothOff:
+        _stopAutoReconnect();
         break;
       default:
         break;
@@ -340,6 +358,52 @@ class NuxDeviceControl extends ChangeNotifier {
     device.onDisconnect();
     debugPrint("Device disconnected");
     _connectStatus.add(DeviceConnectionState.disconnected);
+  }
+
+  void _startAutoReconnect() {
+    _stopAutoReconnect();
+    _isAutoReconnecting = true;
+    debugPrint("Auto-reconnect started");
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (_isAutoReconnecting && _appInForeground && !isConnected) {
+        _midiHandler.startScanning(false);
+      }
+    });
+
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (!_appInForeground || isConnected) {
+        _stopAutoReconnect();
+        return;
+      }
+      if (_midiHandler.bleState != BleState.on) return;
+      if (_midiHandler.manualScan) return;
+      if (!_midiHandler.isScanning) {
+        debugPrint("Auto-reconnect: scanning...");
+        _midiHandler.startScanning(false);
+      }
+    });
+  }
+
+  void _stopAutoReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _isAutoReconnecting = false;
+  }
+
+  void onAppResumed() {
+    _appInForeground = true;
+    if (!isConnected && _midiHandler.bleState == BleState.on) {
+      _startAutoReconnect();
+    }
+  }
+
+  void onAppPaused() {
+    _appInForeground = false;
+    _stopAutoReconnect();
+    if (_midiHandler.isScanning && !isConnected) {
+      _midiHandler.stopScanning();
+    }
   }
 
   void _onDataReceive(List<int> data) {

@@ -276,6 +276,8 @@ class _SettingsState extends State<Settings> {
                                   onPressed: !connected
                                       ? null
                                       : () {
+                                          midiHandler
+                                              .setUserInitiatedDisconnect(true);
                                           midiHandler.disconnectDevice();
                                           setState(() {});
                                         },

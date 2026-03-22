@@ -32,7 +32,8 @@ class MainTabs extends StatefulWidget {
   State<MainTabs> createState() => MainTabsState();
 }
 
-class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
+class MainTabsState extends State<MainTabs>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
   late BuildContext dialogContext;
   late TabController controller;
@@ -42,7 +43,7 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
   bool isBottomDrawerOpen = false;
 
   bool connectionFailed = false;
-  late Timer _timeout;
+  Timer? _timeout;
   StateSetter? dialogSetState;
 
   @override
@@ -60,6 +61,7 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
     }
 
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _visibilityController = TabVisibilityController(5);
 
@@ -123,8 +125,24 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    super.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     NuxDeviceControl.instance().removeListener(onDeviceChanged);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        NuxDeviceControl.instance().onAppResumed();
+        break;
+      case AppLifecycleState.paused:
+        NuxDeviceControl.instance().onAppPaused();
+        break;
+      default:
+        break;
+    }
   }
 
   void onConnectionTimeout() async {
@@ -141,6 +159,7 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
   void connectionStateListener(DeviceConnectionState event) {
     switch (event) {
       case DeviceConnectionState.connectionBegin:
+        if (NuxDeviceControl.instance().isAutoReconnecting) break;
         if (dialogSetState != null) break;
         connectionFailed = false;
         showDialog(
@@ -193,8 +212,8 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
         //just a reset, not connect
         if (NuxDeviceControl.instance().isConnectionComplete()) {
           dialogSetState = null;
-          if (_timeout.isActive) {
-            _timeout.cancel();
+          if (_timeout != null && _timeout!.isActive) {
+            _timeout!.cancel();
             Navigator.pop(context);
           }
         }
@@ -202,8 +221,8 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
         break;
       case DeviceConnectionState.connectionComplete:
         dialogSetState = null;
-        if (_timeout.isActive) {
-          _timeout.cancel();
+        if (_timeout != null && _timeout!.isActive) {
+          _timeout!.cancel();
           Navigator.pop(context);
         }
         break;
@@ -222,6 +241,7 @@ class MainTabsState extends State<MainTabs> with TickerProviderStateMixin {
         description: "Are you sure?", onConfirm: (val) {
       if (val) {
         //disconnect device if connected
+        BLEMidiHandler.instance().setUserInitiatedDisconnect(true);
         BLEMidiHandler.instance().disconnectDevice();
       }
       confirmation.complete(val);

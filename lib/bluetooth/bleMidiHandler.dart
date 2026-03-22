@@ -33,6 +33,7 @@ class BLEMidiHandler {
   bool _manualScan = false;
   bool _granted = false;
   bool _permanentlyDenied = false;
+  bool _userInitiatedDisconnect = false;
 
   bool get permissionGranted => PlatformUtils.isWeb || _granted;
   bool get permanentlyDenied => !PlatformUtils.isWeb && _permanentlyDenied;
@@ -40,6 +41,15 @@ class BLEMidiHandler {
   BleState get bleState => bleController.bleState;
   bool get isScanning => bleController.isScanning;
   bool get manualScan => _manualScan;
+  bool get userInitiatedDisconnect => _userInitiatedDisconnect;
+
+  void setUserInitiatedDisconnect(bool val) {
+    _userInitiatedDisconnect = val;
+  }
+
+  void clearUserDisconnectFlag() {
+    _userInitiatedDisconnect = false;
+  }
 
   factory BLEMidiHandler.instance() {
     return _bleHandler;
