@@ -644,9 +644,36 @@ class NuxDeviceControl extends ChangeNotifier {
     });
   }
 
-  void _saveVolumeToAmp() {
+  void _saveVolumeToAmp() async {
     if (!isConnected) return;
-    device.communication.saveCurrentPreset(device.selectedChannel);
+    int currentChannel = device.selectedChannel;
+
+    for (int ch = 0; ch < device.channelsCount; ch++) {
+      if (ch != currentChannel) {
+        sendBLEData(device.communication.setChannel(ch));
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      // Send the scaled amp level for this channel
+      var preset = device.getPreset(ch);
+      var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
+          preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
+      for (var param in amp.parameters) {
+        if (param.masterVolume) {
+          double refLevel = _referenceLevels[ch] ?? param.value;
+          int outVal = param.formatter
+              .valueToMidi7Bit(refLevel * (masterVolume * 0.01));
+          sendBLEData(createCCMessage(param.midiCC, outVal));
+        }
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      device.communication.saveCurrentPreset(ch);
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
+    // Switch back to original channel
+    if (currentChannel != device.channelsCount - 1) {
+      sendBLEData(device.communication.setChannel(currentChannel));
+    }
   }
 
   void sendBLEData(List<int> data) {
