@@ -28,6 +28,7 @@ class SettingsKeys {
   static const String trackGain = "jamTracksGain";
   static const String lastChannel = "lastChannel";
   static const String refLevel = "refLevel";
+  static const String lastDeviceId = "lastDeviceId";
 }
 
 class SharedPrefs {

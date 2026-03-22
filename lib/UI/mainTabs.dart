@@ -257,6 +257,7 @@ class MainTabsState extends State<MainTabs>
         }
         break;
       case DeviceConnectionState.disconnected:
+        setState(() {});
         break;
     }
   }
@@ -330,6 +331,25 @@ class MainTabsState extends State<MainTabs>
                     ),
                   ],
                 ),
+                if (!NuxDeviceControl.instance().isConnected)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: Colors.amber.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: const Text(
+                        "Not connected",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (layoutMode != LayoutMode.drawer && _currentIndex != 3)
                   BottomDrawer(
                     isBottomDrawerOpen: isBottomDrawerOpen,

@@ -298,12 +298,22 @@ class NuxDeviceControl extends ChangeNotifier {
   void _statusListener(statusValue) {
     switch (statusValue) {
       case MidiSetupStatus.deviceFound:
-        // check if this is valid nux device
         debugPrint("Devices found ${_midiHandler.nuxDevices}");
-        for (var dev in _midiHandler.nuxDevices) {
-          //don't autoconnect on manual scan
-          if (!_midiHandler.manualScan) {
-            _midiHandler.connectToDevice(dev.device);
+        if (!_midiHandler.manualScan) {
+          String? savedId =
+              SharedPrefs().getValue(SettingsKeys.lastDeviceId, null);
+          BLEDevice? target;
+          for (var dev in _midiHandler.nuxDevices) {
+            if (savedId != null && dev.id == savedId) {
+              target = dev.device;
+              break;
+            }
+          }
+          target ??= _midiHandler.nuxDevices.isNotEmpty
+              ? _midiHandler.nuxDevices.first.device
+              : null;
+          if (target != null) {
+            _midiHandler.connectToDevice(target);
           }
         }
         break;
@@ -318,6 +328,8 @@ class NuxDeviceControl extends ChangeNotifier {
 
           updateDiagnosticsData(connected: true);
           SharedPrefs().setValue(SettingsKeys.device, _device.productStringId);
+          SharedPrefs().setValue(
+              SettingsKeys.lastDeviceId, _midiHandler.connectedDevice!.id);
           //can't set version yet, firmware is unknown
           notifyListeners();
           _onConnect();
@@ -333,7 +345,9 @@ class NuxDeviceControl extends ChangeNotifier {
         notifyListeners();
         _onDisconnect();
 
-        if (!wasUserDisconnect && _appInForeground) {
+        if (wasUserDisconnect) {
+          SharedPrefs().setValue(SettingsKeys.lastDeviceId, null);
+        } else if (_appInForeground) {
           _startAutoReconnect();
         }
         break;
@@ -398,7 +412,11 @@ class NuxDeviceControl extends ChangeNotifier {
   void onAppResumed() {
     _appInForeground = true;
     if (!isConnected && _midiHandler.bleState == BleState.on) {
-      _startAutoReconnect();
+      String? savedId =
+          SharedPrefs().getValue(SettingsKeys.lastDeviceId, null);
+      if (savedId != null) {
+        _startAutoReconnect();
+      }
     }
   }
 
