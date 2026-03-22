@@ -679,7 +679,9 @@ class NuxDeviceControl extends ChangeNotifier {
     for (int ch = 0; ch < device.channelsCount; ch++) {
       double ref = _referenceLevels[ch] ?? 100;
       double newRef = ref + (ref * percent / 100);
+      double effective = newRef * (masterVolume * 0.01);
       if (newRef > 100 || newRef < 1) return false;
+      if (effective > 100 || effective < 1) return false;
     }
     return true;
   }
