@@ -280,6 +280,19 @@ class MainTabsState extends State<MainTabs>
     return confirmation.future;
   }
 
+  Widget _wrapIfDisconnected(Widget child) {
+    final needsConnection = _currentIndex < 3;
+    final connected = NuxDeviceControl.instance().isConnected;
+    if (!needsConnection || connected) return child;
+    return AbsorbPointer(
+      absorbing: true,
+      child: Opacity(
+        opacity: 0.5,
+        child: child,
+      ),
+    );
+  }
+
   void onDeviceChanged() {
     setState(() {});
   }
@@ -321,13 +334,15 @@ class MainTabsState extends State<MainTabs>
                         totalTabs: _tabs.length,
                       ),
                     Expanded(
-                      child: layoutMode == LayoutMode.navBar
-                          ? TabBarView(
-                              physics: const NeverScrollableScrollPhysics(),
-                              controller: controller,
-                              children: _tabs,
-                            )
-                          : _tabs.elementAt(_currentIndex),
+                      child: _wrapIfDisconnected(
+                        layoutMode == LayoutMode.navBar
+                            ? TabBarView(
+                                physics: const NeverScrollableScrollPhysics(),
+                                controller: controller,
+                                children: _tabs,
+                              )
+                            : _tabs.elementAt(_currentIndex),
+                      ),
                     ),
                   ],
                 ),

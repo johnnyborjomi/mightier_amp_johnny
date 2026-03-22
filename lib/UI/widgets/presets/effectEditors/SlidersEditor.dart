@@ -36,7 +36,7 @@ class _SlidersEditorState extends State<SlidersEditor> {
       min: param.formatter.min.toDouble(),
       max: param.formatter.max.toDouble(),
       label: param.name,
-      labelFormatter: (val) => param.label,
+      labelFormatter: (val) => param.formatter.toLabel(val),
       activeColor: enabled
           ? widget.preset.effectColor(widget.slot)
           : TinyColor.fromColor(widget.preset.effectColor(widget.slot))
