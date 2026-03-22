@@ -31,7 +31,7 @@ class _SlidersEditorState extends State<SlidersEditor> {
   ThickSlider _createSlider(Parameter param, bool handleVerticalDrag) {
     bool enabled = widget.preset.slotEnabled(widget.slot);
     return ThickSlider(
-      value: param.value,
+      value: NuxDeviceControl.instance().getParameterDisplayValue(param),
       parameter: param,
       min: param.formatter.min.toDouble(),
       max: param.formatter.max.toDouble(),

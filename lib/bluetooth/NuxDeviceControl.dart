@@ -109,8 +109,8 @@ class NuxDeviceControl extends ChangeNotifier {
       _masterVolume = vol;
       if (isConnected) {
         device.sendAmpLevel();
-        _updateAmpLevelDisplay();
       }
+      notifyListeners();
     } else {
       device.presets[device.selectedChannel].volume = vol;
     }
@@ -463,7 +463,6 @@ class NuxDeviceControl extends ChangeNotifier {
 
       if (device.fakeMasterVolume) {
         _initReferenceLevels();
-        _updateAmpLevelDisplay();
       }
 
       _connectStatus.add(DeviceConnectionState.connectionComplete);
@@ -666,19 +665,13 @@ class NuxDeviceControl extends ChangeNotifier {
     return 100;
   }
 
-  void _updateAmpLevelDisplay() {
-    for (int ch = 0; ch < device.channelsCount; ch++) {
-      var preset = device.getPreset(ch);
-      var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
-          preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
-      for (var param in amp.parameters) {
-        if (param.masterVolume) {
-          double refLevel = _referenceLevels[ch] ?? param.value;
-          param.value = refLevel * (masterVolume * 0.01);
-        }
-      }
+  double getParameterDisplayValue(Parameter param) {
+    if (device.fakeMasterVolume && param.masterVolume) {
+      double refLevel =
+          _referenceLevels[device.selectedChannel] ?? param.value;
+      return refLevel * (masterVolume * 0.01);
     }
-    notifyListeners();
+    return param.value;
   }
 
   bool canAdjustRefLevels(double percent) {
@@ -701,7 +694,7 @@ class NuxDeviceControl extends ChangeNotifier {
     }
     if (isConnected) {
       device.sendAmpLevel();
-      _updateAmpLevelDisplay();
+      notifyListeners();
       scheduleAutoSave();
     }
   }
