@@ -120,9 +120,13 @@ class NuxDeviceControl extends ChangeNotifier {
       StreamController.broadcast();
   final StreamController<int> _batteryPercentage =
       StreamController<int>.broadcast();
+  final StreamController<bool> _savingVolume =
+      StreamController<bool>.broadcast();
+  bool _isSavingVolume = false;
 
   Stream<DeviceConnectionState> get connectStatus => _connectStatus.stream;
   Stream<int> get batteryPercentage => _batteryPercentage.stream;
+  Stream<bool> get savingVolume => _savingVolume.stream;
 
   bool get isConnected => _midiHandler.connectedDevice != null;
 
@@ -407,6 +411,7 @@ class NuxDeviceControl extends ChangeNotifier {
   }
 
   void _onDataReceive(List<int> data) {
+    if (_isSavingVolume) return;
     if (developer) onDataReceiveDebug?.call(data);
     _device.communication.onDataReceive(data);
   }
@@ -488,6 +493,11 @@ class NuxDeviceControl extends ChangeNotifier {
   //preset editing listeners
   void parameterChangedListener(Parameter param) {
     if (!isConnected) return;
+    if (device.fakeMasterVolume && param.masterVolume) {
+      _referenceLevels[device.selectedChannel] = param.value;
+      SharedPrefs().setValue(
+          _refLevelKey(device.selectedChannel), param.value);
+    }
     sendParameter(param, false);
   }
 
@@ -646,14 +656,14 @@ class NuxDeviceControl extends ChangeNotifier {
 
   void _saveVolumeToAmp() async {
     if (!isConnected) return;
+    _isSavingVolume = true;
+    _savingVolume.add(true);
     int currentChannel = device.selectedChannel;
 
     for (int ch = 0; ch < device.channelsCount; ch++) {
-      if (ch != currentChannel) {
-        sendBLEData(device.communication.setChannel(ch));
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-      // Send the scaled amp level for this channel
+      sendBLEData(device.communication.setChannel(ch));
+      await Future.delayed(const Duration(milliseconds: 50));
+
       var preset = device.getPreset(ch);
       var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
           preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
@@ -665,15 +675,16 @@ class NuxDeviceControl extends ChangeNotifier {
           sendBLEData(createCCMessage(param.midiCC, outVal));
         }
       }
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 50));
       device.communication.saveCurrentPreset(ch);
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 150));
     }
 
-    // Switch back to original channel
-    if (currentChannel != device.channelsCount - 1) {
-      sendBLEData(device.communication.setChannel(currentChannel));
-    }
+    sendBLEData(device.communication.setChannel(currentChannel));
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    _isSavingVolume = false;
+    _savingVolume.add(false);
   }
 
   void sendBLEData(List<int> data) {

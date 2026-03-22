@@ -86,6 +86,7 @@ class MainTabsState extends State<MainTabs>
     // });
 
     NuxDeviceControl.instance().connectStatus.listen(connectionStateListener);
+    NuxDeviceControl.instance().savingVolume.listen(savingVolumeListener);
     NuxDeviceControl.instance().addListener(onDeviceChanged);
 
     BLEMidiHandler.instance().initBle(bleErrorHandler);
@@ -142,6 +143,35 @@ class MainTabsState extends State<MainTabs>
         break;
       default:
         break;
+    }
+  }
+
+  void savingVolumeListener(bool saving) {
+    if (saving) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => NestedWillPopScope(
+          onWillPop: () => Future.value(false),
+          child: Dialog(
+            backgroundColor: Colors.grey[700],
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  CircularProgressIndicator.adaptive(),
+                  SizedBox(width: 8),
+                  Text("Saving global volume"),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).pop();
     }
   }
 
