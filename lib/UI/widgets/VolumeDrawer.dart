@@ -6,7 +6,6 @@ import '../../platform/simpleSharedPrefs.dart';
 import 'thickSlider.dart';
 
 const _kBottomDrawerPickHeight = 50.0;
-const _kBottomDrawerHiddenHeight = 60.0;
 const _kBottomDrawerHiddenPadding = 8.0;
 
 class BottomDrawer extends StatelessWidget {
@@ -23,6 +22,9 @@ class BottomDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final device = NuxDeviceControl.instance().device;
+    final drawerHeight = device.fakeMasterVolume ? 110.0 : 60.0;
+
     return GestureDetector(
       onTap: () {
         onExpandChange(!isBottomDrawerOpen);
@@ -58,7 +60,7 @@ class BottomDrawer extends StatelessWidget {
             padding: const EdgeInsets.all(_kBottomDrawerHiddenPadding),
             color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
             duration: const Duration(milliseconds: 100),
-            height: isBottomDrawerOpen ? _kBottomDrawerHiddenHeight : 0,
+            height: isBottomDrawerOpen ? drawerHeight : 0,
             child: child,
           ),
         ],
@@ -73,24 +75,73 @@ class VolumeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final devControl = NuxDeviceControl.instance();
     return ValueListenableBuilder(
-      valueListenable: NuxDeviceControl.instance().masterVolumeNotifier,
+      valueListenable: devControl.masterVolumeNotifier,
       builder: (context, value, child) {
-        final device = NuxDeviceControl.instance().device;
+        final device = devControl.device;
         final volumeFormatter = device.fakeMasterVolume
             ? ValueFormatters.percentage
             : device.decibelFormatter!;
-        return ThickSlider(
-          activeColor: Colors.blue,
-          value: NuxDeviceControl.instance().masterVolume,
-          skipEmitting: 3,
-          label: label,
-          labelFormatter: volumeFormatter.toLabel,
-          min: volumeFormatter.min.toDouble(),
-          max: volumeFormatter.max.toDouble(),
-          handleVerticalDrag: false,
-          onChanged: _onVolumeChanged,
-          onDragEnd: _onVolumeDragEnd,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 44,
+              child: ThickSlider(
+                activeColor: Colors.blue,
+                value: devControl.masterVolume,
+                skipEmitting: 3,
+                label: label,
+                labelFormatter: volumeFormatter.toLabel,
+                min: volumeFormatter.min.toDouble(),
+                max: volumeFormatter.max.toDouble(),
+                handleVerticalDrag: false,
+                onChanged: _onVolumeChanged,
+                onDragEnd: _onVolumeDragEnd,
+              ),
+            ),
+            if (device.fakeMasterVolume)
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Restore volume in all presets",
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 28,
+                      child: ElevatedButton(
+                        onPressed: devControl.canAdjustRefLevels(-5)
+                            ? () => devControl.adjustAllReferenceLevels(-5)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text("-5%"),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      height: 28,
+                      child: ElevatedButton(
+                        onPressed: devControl.canAdjustRefLevels(5)
+                            ? () => devControl.adjustAllReferenceLevels(5)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text("+5%"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         );
       },
     );

@@ -463,6 +463,7 @@ class NuxDeviceControl extends ChangeNotifier {
 
       if (device.fakeMasterVolume) {
         _initReferenceLevels();
+        _updateAmpLevelDisplay();
       }
 
       _connectStatus.add(DeviceConnectionState.connectionComplete);
@@ -666,17 +667,43 @@ class NuxDeviceControl extends ChangeNotifier {
   }
 
   void _updateAmpLevelDisplay() {
-    var preset = device.getPreset(device.selectedChannel);
-    var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
-        preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
-    for (var param in amp.parameters) {
-      if (param.masterVolume) {
-        double refLevel =
-            _referenceLevels[device.selectedChannel] ?? param.value;
-        param.value = refLevel * (masterVolume * 0.01);
+    for (int ch = 0; ch < device.channelsCount; ch++) {
+      var preset = device.getPreset(ch);
+      var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
+          preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
+      for (var param in amp.parameters) {
+        if (param.masterVolume) {
+          double refLevel = _referenceLevels[ch] ?? param.value;
+          param.value = refLevel * (masterVolume * 0.01);
+        }
       }
     }
     notifyListeners();
+  }
+
+  bool canAdjustRefLevels(double percent) {
+    if (!device.fakeMasterVolume) return false;
+    for (int ch = 0; ch < device.channelsCount; ch++) {
+      double ref = _referenceLevels[ch] ?? 100;
+      double newRef = ref + (ref * percent / 100);
+      if (newRef > 100 || newRef < 1) return false;
+    }
+    return true;
+  }
+
+  void adjustAllReferenceLevels(double percent) {
+    if (!canAdjustRefLevels(percent)) return;
+    for (int ch = 0; ch < device.channelsCount; ch++) {
+      double ref = _referenceLevels[ch] ?? 100;
+      double newRef = ref + (ref * percent / 100);
+      _referenceLevels[ch] = newRef;
+      SharedPrefs().setValue(_refLevelKey(ch), newRef);
+    }
+    if (isConnected) {
+      device.sendAmpLevel();
+      _updateAmpLevelDisplay();
+      scheduleAutoSave();
+    }
   }
 
   void scheduleAutoSave() {
