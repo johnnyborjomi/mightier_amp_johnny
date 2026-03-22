@@ -109,6 +109,7 @@ class NuxDeviceControl extends ChangeNotifier {
       _masterVolume = vol;
       if (isConnected) {
         device.sendAmpLevel();
+        _updateAmpLevelDisplay();
       }
     } else {
       device.presets[device.selectedChannel].volume = vol;
@@ -662,6 +663,20 @@ class NuxDeviceControl extends ChangeNotifier {
       if (param.masterVolume) return param.value;
     }
     return 100;
+  }
+
+  void _updateAmpLevelDisplay() {
+    var preset = device.getPreset(device.selectedChannel);
+    var amp = preset.getEffectsForSlot(device.amplifierSlotIndex)[
+        preset.getSelectedEffectForSlot(device.amplifierSlotIndex)];
+    for (var param in amp.parameters) {
+      if (param.masterVolume) {
+        double refLevel =
+            _referenceLevels[device.selectedChannel] ?? param.value;
+        param.value = refLevel * (masterVolume * 0.01);
+      }
+    }
+    notifyListeners();
   }
 
   void scheduleAutoSave() {

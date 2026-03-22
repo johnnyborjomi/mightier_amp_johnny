@@ -29,6 +29,9 @@ class SettingsKeys {
   static const String lastChannel = "lastChannel";
   static const String refLevel = "refLevel";
   static const String lastDeviceId = "lastDeviceId";
+  static const String drumsStyle = "drumsStyle";
+  static const String drumsTempo = "drumsTempo";
+  static const String drumsVolume = "drumsVolume";
 }
 
 class SharedPrefs {

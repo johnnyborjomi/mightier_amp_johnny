@@ -244,12 +244,14 @@ abstract class NuxDevice extends ChangeNotifier {
     if (config.selectedDrumStyle == style) return;
     config.selectedDrumStyle = style;
     communication.sendDrumsStyle(style);
+    SharedPrefs().setValue(SettingsKeys.drumsStyle, style);
   }
 
   void setDrumsLevel(double level, bool send) {
     if (config.drumsVolume == level) return;
     config.drumsVolume = level;
     if (send) communication.sendDrumsLevel(level);
+    SharedPrefs().setValue(SettingsKeys.drumsVolume, level);
   }
 
   void setDrumsTempo(double tempo, bool send) {
@@ -257,6 +259,7 @@ abstract class NuxDevice extends ChangeNotifier {
     tempo = math.min(math.max(tempo, drumsMinTempo), drumsMaxTempo);
     config.drumsTempo = tempo;
     if (send) communication.sendDrumsTempo(tempo);
+    SharedPrefs().setValue(SettingsKeys.drumsTempo, tempo);
   }
 
   void setEcoMode(bool enabled) {
@@ -313,8 +316,28 @@ abstract class NuxDevice extends ChangeNotifier {
       setSelectedChannel(savedChannel,
           notifyBT: true, notifyUI: true, sendFullPreset: true);
     }
+    _restoreDrumSettings();
     deviceControl.onPresetsReady();
     nuxPresetsReceived = true;
+  }
+
+  void _restoreDrumSettings() {
+    int? savedStyle =
+        SharedPrefs().getValue(SettingsKeys.drumsStyle, null);
+    double? savedTempo =
+        SharedPrefs().getValue(SettingsKeys.drumsTempo, null);
+    double? savedVolume =
+        SharedPrefs().getValue(SettingsKeys.drumsVolume, null);
+
+    if (savedStyle != null && savedStyle < getDrumStylesCount()) {
+      setDrumsStyle(savedStyle);
+    }
+    if (savedTempo != null) {
+      setDrumsTempo(savedTempo, true);
+    }
+    if (savedVolume != null) {
+      setDrumsLevel(savedVolume, true);
+    }
   }
 
   void _handleChannelChange(int index) {
